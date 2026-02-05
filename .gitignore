@@ -1,0 +1,20 @@
+# OS files
+*/.DS_Store
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+/tmp/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
