@@ -30,6 +30,7 @@ type Node = {
   id: NodeId;
   x: number;
   y: number;
+  fuel_price?: number;
 };
 
 type Edge = {
@@ -57,6 +58,13 @@ type RouteResponse = {
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_ROUTE_API_BASE_URL ?? "http://127.0.0.1:8000";
+
+const sampleFuelPriceForNode = (nodeId: string, index: number) => {
+  const parsed = Number.parseInt(nodeId.replace(/\D/g, ""), 10);
+  const base = Number.isFinite(parsed) ? parsed : index;
+  const normalized = (base * 0.41) % 2.2;
+  return Number((3.05 + normalized).toFixed(2));
+};
 
 export default function Page() {
   const [nodes, setNodes] = React.useState<Node[]>([]);
@@ -95,9 +103,17 @@ export default function Page() {
 
       const data: RouteResponse = await res.json();
 
-      setNodes(data.nodes);
+      const nodesWithFuel = data.nodes.map((node, index) => ({
+        ...node,
+        fuel_price:
+          typeof node.fuel_price === "number"
+            ? node.fuel_price
+            : sampleFuelPriceForNode(node.id, index),
+      }));
+
+      setNodes(nodesWithFuel);
       setEdges(
-        data.edges.map((e: any) => ({
+        data.edges.map((e) => ({
           from_: e.from_,
           to: e.to,
           distance: e.distance,
@@ -110,9 +126,9 @@ export default function Page() {
         if (!from) setFrom(data.route.path[0]);
         if (!to) setTo(data.route.path[data.route.path.length - 1]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message ?? "Failed to fetch");
+      setError(err instanceof Error ? err.message : "Failed to fetch");
       setRoute(null);
     } finally {
       setLoading(false);

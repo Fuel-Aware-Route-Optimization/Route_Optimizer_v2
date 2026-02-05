@@ -1,12 +1,20 @@
 "use client";
 
 import React from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Polyline,
+  Tooltip,
+  useMap,
+} from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 if (typeof window !== "undefined") {
-  delete (L.Icon.Default.prototype as any)._getIconUrl;
+  delete (L.Icon.Default.prototype as { _getIconUrl?: string })._getIconUrl;
   L.Icon.Default.mergeOptions({
     iconRetinaUrl: "/marker-icon-2x.png",
     iconUrl: "/marker-icon.png",
@@ -14,16 +22,13 @@ if (typeof window !== "undefined") {
   });
 }
 
-import icon from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
-import iconRetina from "leaflet/dist/images/marker-icon-2x.png";
-
 type NodeId = string;
 
 type Node = {
   id: NodeId;
   x: number;
   y: number;
+  fuel_price?: number;
 };
 
 type Edge = {
@@ -39,6 +44,16 @@ type RouteMapProps = {
   routePath: NodeId[];
   fromNode?: NodeId;
   toNode?: NodeId;
+};
+
+const getPriceColor = (price: number, minPrice: number, maxPrice: number) => {
+  if (maxPrice - minPrice < 0.001) return "hsl(202 75% 42%)";
+  const normalized = Math.max(
+    0,
+    Math.min(1, (price - minPrice) / (maxPrice - minPrice)),
+  );
+  const hue = 120 - normalized * 120;
+  return `hsl(${hue} 72% 40%)`;
 };
 
 // Custom icons for start/end markers
@@ -144,6 +159,17 @@ export default function RouteMap({
 
   const pathNodes = React.useMemo(() => new Set(routePath), [routePath]);
 
+  const { minFuelPrice, maxFuelPrice } = React.useMemo(() => {
+    const values = nodes
+      .map((node) => node.fuel_price)
+      .filter((price): price is number => typeof price === "number");
+    if (!values.length) return { minFuelPrice: 0, maxFuelPrice: 0 };
+    return {
+      minFuelPrice: Math.min(...values),
+      maxFuelPrice: Math.max(...values),
+    };
+  }, [nodes]);
+
   const center: [number, number] = React.useMemo(() => {
     if (nodes.length === 0) return [37.7749, -122.4194]; // Default to SF
     const avgY = nodes.reduce((sum, n) => sum + n.y, 0) / nodes.length;
@@ -223,7 +249,16 @@ export default function RouteMap({
   }
 
   return (
-    <div style={{ width: "100%", height: "500px", borderRadius: 10, overflow: "hidden" }} id={mapId}>
+    <div
+      style={{
+        width: "100%",
+        height: "500px",
+        borderRadius: 10,
+        overflow: "hidden",
+        position: "relative",
+      }}
+      id={mapId}
+    >
       <MapContainer
         key={mapId}
         center={center}
@@ -267,6 +302,12 @@ export default function RouteMap({
           const isStart = node.id === fromNode;
           const isEnd = node.id === toNode;
           const isOnPath = pathNodes.has(node.id);
+          const fuelPrice =
+            typeof node.fuel_price === "number" ? node.fuel_price : null;
+          const fuelColor =
+            fuelPrice === null
+              ? "#64748B"
+              : getPriceColor(fuelPrice, minFuelPrice, maxFuelPrice);
 
           let icon;
           if (isStart) {
@@ -283,6 +324,25 @@ export default function RouteMap({
               position={[node.y, node.x]}
               icon={icon}
             >
+              {fuelPrice !== null && (
+                <Tooltip direction="top" offset={[0, -15]} opacity={1} permanent>
+                  <div
+                    style={{
+                      background: fuelColor,
+                      color: "white",
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                      border: isOnPath ? "1px solid #0EA5E9" : "1px solid white",
+                    }}
+                  >
+                    ${fuelPrice.toFixed(2)}
+                  </div>
+                </Tooltip>
+              )}
               <Popup>
                 <div style={{ textAlign: "center" }}>
                   <strong>Node {node.id}</strong>
@@ -290,6 +350,14 @@ export default function RouteMap({
                   <small>
                     Lat: {node.y.toFixed(4)}, Lng: {node.x.toFixed(4)}
                   </small>
+                  {fuelPrice !== null && (
+                    <>
+                      <br />
+                      <strong style={{ color: fuelColor }}>
+                        Fuel: ${fuelPrice.toFixed(2)} / gal
+                      </strong>
+                    </>
+                  )}
                   {isStart && (
                     <div style={{ color: "#10B981", marginTop: 4 }}>
                       🚩 Start
@@ -311,7 +379,37 @@ export default function RouteMap({
           );
         })}
       </MapContainer>
+      <div
+        style={{
+          position: "absolute",
+          top: 12,
+          right: 12,
+          zIndex: 500,
+          background: "rgba(255,255,255,0.95)",
+          border: "1px solid #E2E8F0",
+          borderRadius: 8,
+          padding: "8px 10px",
+          boxShadow: "0 4px 12px rgba(15, 23, 42, 0.12)",
+          fontSize: 12,
+          color: "#334155",
+          minWidth: 132,
+        }}
+      >
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>Fuel price</div>
+        <div
+          style={{
+            height: 8,
+            borderRadius: 999,
+            background:
+              "linear-gradient(90deg, hsl(120 72% 40%), hsl(60 72% 40%), hsl(0 72% 40%))",
+            marginBottom: 4,
+          }}
+        />
+        <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <span>${minFuelPrice.toFixed(2)}</span>
+          <span>${maxFuelPrice.toFixed(2)}</span>
+        </div>
+      </div>
     </div>
   );
 }
-
