@@ -14,6 +14,15 @@ from services.graph import generate_random_graph, Vehicle
 
 app = FastAPI(title="Fuel-Aware Route Optimizer")
 
+DEFAULT_FUEL_PRICE = 3.50 
+
+def compute_fuel_cost_from_distance_km(distance_km: float, vehicle) -> float:
+    try:
+        fuel_used = distance_km * float(getattr(vehicle, "consumption_per_dist", 0.0))
+        return float(fuel_used * DEFAULT_FUEL_PRICE)
+    except Exception:
+        return 0.0
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -51,12 +60,20 @@ class RouteOut(BaseModel):
     notes: Optional[str] = None
     summary: Optional[RouteSummary] = None   
 
+class RouteComparison(BaseModel):
+    baseline_fuel_cost: float
+    optimized_fuel_cost: float
+    savings_amount: float
+    savings_percent: float
 
 class RouteResponse(BaseModel):
-    api_version: str = "v1"         
+    api_version: str = "v1"
     nodes: List[NodeOut]
     edges: List[EdgeOut]
     route: RouteOut
+    comparison: Optional[RouteComparison] = None
+
+
 
 
 def get_road_route(
@@ -132,9 +149,37 @@ def get_route(
         notes=notes,
     )
 
+    try:
+        baseline_weights = {"distance": 1.0, "fuel": 0.0}
+        baseline_algo = DijkstraFuel()
+        baseline_result = baseline_algo.solve(g, start, goal, vehicle, baseline_weights, positions)
+
+        baseline_total_distance = float(baseline_result.get("total_distance", 0.0) or 0.0)
+        baseline_fuel_cost = float(baseline_result.get("fuel_cost", 0.0) or 0.0)
+
+        if baseline_fuel_cost <= 0.0:
+            baseline_fuel_cost = compute_fuel_cost_from_distance_km(baseline_total_distance, vehicle)
+    except Exception as e:
+        print(f"Baseline route calculation failed: {e}")
+        baseline_total_distance = 0.0
+        baseline_fuel_cost = 0.0
+
+    optimized_fuel_cost = fuel_cost if fuel_cost > 0 else compute_fuel_cost_from_distance_km(total_distance, vehicle)
+
+    savings_amount = baseline_fuel_cost - optimized_fuel_cost
+    savings_percent = (savings_amount / baseline_fuel_cost * 100.0) if baseline_fuel_cost > 0 else 0.0
+
+    comparison = RouteComparison(
+        baseline_fuel_cost=round(baseline_fuel_cost, 2),
+        optimized_fuel_cost=round(optimized_fuel_cost, 2),
+        savings_amount=round(savings_amount, 2),
+        savings_percent=round(savings_percent, 2),
+    )
+
+
     route_out.summary = RouteSummary(distance_km=total_distance, fuel_cost=fuel_cost)
 
-    # Build response data structures
+    
     nodes_out: List[NodeOut] = []
     for node_id, (x, y) in positions.items():
         nodes_out.append(NodeOut(id=str(node_id), x=float(x), y=float(y)))
@@ -160,5 +205,5 @@ def get_route(
                 EdgeOut(from_=str(u), to=str(v), distance=dist_val, geometry=geometry)
             )
 
-    return RouteResponse(api_version="v1", nodes=nodes_out, edges=edges_out, route=route_out)
+    return RouteResponse(api_version="v1", nodes=nodes_out, edges=edges_out, route=route_out, comparison=comparison)
 

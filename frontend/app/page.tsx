@@ -54,11 +54,19 @@ type Route = {
   summary?: RouteSummary; 
 };
 
+type RouteComparison = {
+  baseline_fuel_cost: number;
+  optimized_fuel_cost: number;
+  savings_amount: number;
+  savings_percent: number;
+};
+
 type RouteResponse = {
   api_version?: string;
   nodes: Node[];
   edges: Edge[];
   route: Route;
+  comparison?: RouteComparison;
 };
 
 const API_BASE_URL =
@@ -74,6 +82,7 @@ const sampleFuelPriceForNode = (nodeId: string, index: number) => {
 export default function Page() {
   const [nodes, setNodes] = React.useState<Node[]>([]);
   const [edges, setEdges] = React.useState<Edge[]>([]);
+  const [comparison, setComparison] = React.useState<RouteComparison | null>(null);
   const [route, setRoute] = React.useState<Route | null>(null);
 
   const [from, setFrom] = React.useState<NodeId | "">("");
@@ -153,6 +162,8 @@ export default function Page() {
     );
 
     setRoute(apiRoute);
+
+    setComparison(data.comparison ?? null);
 
 
       if (!useCurrentStartGoal && data.route.path.length > 0) {
@@ -465,12 +476,29 @@ export default function Page() {
               style={{
                 borderRadius: 10,
                 border: "1px solid #E2E8F0",
-                padding: "0.65rem 0.75rem",
+                padding: "0.45rem 0.15rem",
                 background: "#F8FAFC",
                 fontWeight: 600,
                 color: "#0F172A",
               }}
             >
+              {comparison ? (
+                
+                <div style={{ marginTop: "0.15rem", color: "#0F172A" }}>
+                  <div style={{ fontSize: "0.95rem", marginBottom: "0.25rem", fontWeight: 600 }}>
+                  Cost Comparison
+                  </div>
+                  <div style={{ display: "flex", gap: "0.40rem", alignItems: "center" }}>
+                    <div style={{ padding: "0.25rem 0.5rem", borderRadius: 8, background: "#F8FAFC", border: "1px solid #E2E8F0" }}>
+                      Baseline: ${comparison.baseline_fuel_cost.toFixed(2)}
+                    </div>
+                    <div style={{ padding: "0.25rem 0.5rem", borderRadius: 8, background: "#ECFEFF", border: "1px solid #BDEBF8" }}>
+                      Optimized: ${comparison.optimized_fuel_cost.toFixed(2)}
+                    </div>
+                    
+                  </div>
+                </div>
+              ) : null}
               Legs
               <div style={{ fontSize: "1.1rem", marginTop: "0.15rem" }}>
                 {Math.max(summaryPath.length - 1, 0)}
