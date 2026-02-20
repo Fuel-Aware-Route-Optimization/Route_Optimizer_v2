@@ -74,12 +74,6 @@ type RouteResponse = {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_ROUTE_API_BASE_URL ?? "http://127.0.0.1:8000";
 
-const sampleFuelPriceForNode = (nodeId: string, index: number) => {
-  const parsed = Number.parseInt(nodeId.replace(/\D/g, ""), 10);
-  const base = Number.isFinite(parsed) ? parsed : index;
-  const normalized = (base * 0.41) % 2.2;
-  return Number((3.05 + normalized).toFixed(2));
-};
 
 export default function Page() {
   const [nodes, setNodes] = React.useState<Node[]>([]);
@@ -141,13 +135,7 @@ export default function Page() {
       }
 
 
-      const nodesWithFuel = data.nodes.map((node, index) => ({
-  ...node,
-  fuel_price:
-    typeof node.fuel_price === "number"
-      ? node.fuel_price
-      : sampleFuelPriceForNode(node.id, index),
-}));
+      const nodesWithFuel = data.nodes.map((node) => ({ ...node }));
 
       const apiRoute = data.route ?? null;
       if (apiRoute) {

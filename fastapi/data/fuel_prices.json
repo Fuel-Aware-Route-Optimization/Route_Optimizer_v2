@@ -1,0 +1,23 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "source": "placeholder",
+    "currency": "USD",
+    "unit": "per_gallon",
+    "last_updated": "2026-02-20"
+  },
+  "prices": {
+    "Phoenix, AZ":     1.89,
+    "Tucson, AZ":      2.75,
+    "Las Cruces, NM":  1.62,
+    "El Paso, TX":     2.41,
+    "Midland, TX":     4.55,
+    "San Angelo, TX":  1.48,
+    "Abilene, TX":     1.52,
+    "Fort Worth, TX":  1.70,
+    "Dallas, TX":      2.68,
+    "Tyler, TX":       1.60,
+    "Houston, TX":     1.44,
+    "San Antonio, TX": 2.38
+  }
+}

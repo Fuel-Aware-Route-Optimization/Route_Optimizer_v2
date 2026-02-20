@@ -1,7 +1,8 @@
-from typing import List, Optional, Literal
+from typing import Dict, List, Optional, Literal
 import urllib.request
 import json
 import urllib.parse
+from pathlib import Path
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,19 @@ from services.graph import generate_random_graph, Vehicle
 
 app = FastAPI(title="Fuel-Aware Route Optimizer")
 
+FUEL_PRICE_SOURCE: Literal["json", "random"] = "json"   # Fuel price source toggle
+# set to "json" to load prices from fuel_prices.json
+# set to "random" to generate prices randomly using the graph seed
+
+_FUEL_PRICES_PATH = Path(__file__).parent / "data" / "fuel_prices.json"
+
 DEFAULT_FUEL_PRICE = 3.50 
+
+
+def _load_fuel_prices_from_json() -> Dict[str, float]:
+    with open(_FUEL_PRICES_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return {city: float(price) for city, price in data["prices"].items()}
 
 def compute_fuel_cost_from_distance_km(distance_km: float, vehicle) -> float:
     try:
@@ -37,6 +50,7 @@ class NodeOut(BaseModel):
     id: str
     x: float
     y: float
+    fuel_price: float
 
 
 class EdgeOut(BaseModel):
@@ -99,8 +113,9 @@ def get_route(
     start: Optional[str] = Query(None),
     goal: Optional[str] = Query(None),
 ):
-    # Generate graph with real US city coordinates
-    g, positions = generate_random_graph(n=12, edge_prob=0.3, seed=seed)
+    # Generate graph: use JSON prices or random prices depending on FUEL_PRICE_SOURCE seting in Line 23
+    price_overrides = _load_fuel_prices_from_json() if FUEL_PRICE_SOURCE == "json" else None
+    g, positions = generate_random_graph(n=12, edge_prob=0.3, seed=seed, price_overrides=price_overrides)
 
     vehicle = Vehicle(tank_capacity=20, fuel=5, consumption_per_dist=0.08)
     weights = {"distance": 1.0, "fuel": 1.0}
@@ -186,7 +201,12 @@ def get_route(
     
     nodes_out: List[NodeOut] = []
     for node_id, (x, y) in positions.items():
-        nodes_out.append(NodeOut(id=str(node_id), x=float(x), y=float(y)))
+        nodes_out.append(NodeOut(
+            id=str(node_id),
+            x=float(x),
+            y=float(y),
+            fuel_price=float(g.fuel_price(node_id)),
+        ))
 
     edges_out: List[EdgeOut] = []
     seen = set()

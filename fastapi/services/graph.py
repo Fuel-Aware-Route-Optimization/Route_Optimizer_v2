@@ -47,7 +47,8 @@ def generate_random_graph(n: int = 12,
                           seed: int = 42,
                           price_low: float = 3.0,
                           price_high: float = 6.0,
-                          pos_spread: float = 50.0):
+                          pos_spread: float = 50.0,
+                          price_overrides: Optional[Dict[str, float]] = None):
     rng = random.Random(seed)
     g = Graph()
     positions = {}
@@ -72,7 +73,10 @@ def generate_random_graph(n: int = 12,
     selected_cities = highway_cities[:total_nodes]
     
     for city, lon, lat in selected_cities:
-        price = rng.uniform(price_low, price_high)
+        if price_overrides is not None and city in price_overrides:
+            price = price_overrides[city]
+        else:
+            price = rng.uniform(price_low, price_high)
         g.add_node(city, round(price, 2))
         jitter_lon = rng.uniform(-0.3, 0.3)
         jitter_lat = rng.uniform(-0.3, 0.3)
