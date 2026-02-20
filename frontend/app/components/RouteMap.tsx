@@ -371,10 +371,9 @@ export default function RouteMap({
             key={`baseline-${segment.key}`}
             positions={segment.positions}
             pathOptions={{
-              color: "#F59E0B",
+              color: "#16A34A",
               weight: 6,
               opacity: 0.85,
-              dashArray: "8 10",
             }}
           >
             <Popup>
@@ -486,7 +485,7 @@ export default function RouteMap({
                   {isOnPath && !isStart && !isEnd && (
                     <div
                       style={{
-                        color: isOnOptimizedPath ? "#0EA5E9" : "#F59E0B",
+                        color: isOnOptimizedPath ? "#0EA5E9" : "#16A34A",
                         marginTop: 4,
                       }}
                     >
@@ -541,7 +540,7 @@ export default function RouteMap({
                 display: "inline-block",
                 width: 20,
                 height: 0,
-                borderTop: "3px dashed #F59E0B",
+                borderTop: "4px solid #16A34A",
               }}
             />
             <span>Baseline</span>
